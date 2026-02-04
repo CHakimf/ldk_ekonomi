@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { CalendarDays, Plus, Edit2, Trash2, X, PieChart as PieChartIcon, Calendar, Search } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card } from '../components/Card';
-import { getEvents, getEventBudgetStats, formatCurrency, addEvent, updateEvent, deleteEvent } from '../services/dataService';
-import { Event } from '../types';
+import { getEvents, formatCurrency, addEvent, updateEvent, deleteEvent, getTransactions } from '../services/dataService';
+import { Event, Transaction, TransactionType } from '../types';
 
 export const Events: React.FC = () => {
   const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   
@@ -39,8 +41,10 @@ export const Events: React.FC = () => {
     refreshEvents();
   }, []);
 
-  const refreshEvents = () => {
-    setAllEvents(getEvents());
+  const refreshEvents = async () => {
+    const [eventsData, txData] = await Promise.all([getEvents(), getTransactions()]);
+    setAllEvents(eventsData);
+    setAllTransactions(txData);
   };
 
   const filteredEvents = useMemo(() => {
@@ -136,7 +140,19 @@ export const Events: React.FC = () => {
 
       <div className="grid grid-cols-1 gap-6">
         {filteredEvents.map((event) => {
-          const stats = getEventBudgetStats(event.id);
+          // Fix: Calculate stats synchronously to avoid Promise-related errors
+          const stats = (() => {
+            const eventTxs = allTransactions.filter(t => t.eventId === event.id);
+            const totalExpense = eventTxs.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
+            const totalIncome = eventTxs.filter(t => t.type === TransactionType.INCOME).reduce((sum, t) => sum + t.amount, 0);
+            return {
+              budget: event.budget || 0,
+              used: totalExpense,
+              income: totalIncome,
+              remaining: (event.budget || 0) - totalExpense
+            };
+          })();
+          
           const percentUsed = Math.min(100, Math.round((stats.used / (stats.budget || 1)) * 100));
           
           const chartData = [

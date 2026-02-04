@@ -1,12 +1,22 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Printer, FileText, Calendar, Activity, FileSpreadsheet } from 'lucide-react';
 import { Card } from '../components/Card';
 import { getTransactions, formatCurrency, getCurrentUser } from '../services/dataService';
-import { TransactionType } from '../types';
+import { TransactionType, Transaction } from '../types';
 
 export const Reports: React.FC = () => {
-  const allTransactions = getTransactions();
+  // Fix: Initialize allTransactions as a state and fetch it in useEffect
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const currentUser = getCurrentUser();
+  
+  useEffect(() => {
+    const loadData = async () => {
+      const data = await getTransactions();
+      setAllTransactions(data);
+    };
+    loadData();
+  }, []);
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
