@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -66,7 +65,10 @@ export const Dashboard: React.FC = () => {
     else acc[date].expense += curr.amount;
     return acc;
   }, {} as Record<string, { date: string; income: number; expense: number }>);
-  const chartData = Object.values(chartDataMap).sort((a, b) => a.date.localeCompare(b.date));
+  
+  // Fix: Explicitly cast Object.values result to the appropriate type to resolve "Property 'date' does not exist on type 'unknown'" error.
+  const chartData = (Object.values(chartDataMap) as Array<{ date: string; income: number; expense: number }>)
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   const StatCard = ({ title, value, icon: Icon, colorClass }: any) => (
     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex items-start justify-between group hover:shadow-lg transition-all border-b-4 border-b-transparent hover:border-b-emerald-500">

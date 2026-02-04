@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Trash2, Mail, Calendar, X, Search, Lock } from 'lucide-react';
+import { UserPlus, Trash2, Mail, Calendar, X, Search, Lock, Loader2 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { getUsers, addUser, deleteUser, getCurrentUser } from '../services/dataService';
 import { User, Role } from '../types';
 
 export const Members: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const activeUser = getCurrentUser();
@@ -17,38 +18,52 @@ export const Members: React.FC = () => {
     role: Role.ANGGOTA
   });
 
+  const refreshUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await getUsers();
+      setUsers(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshUsers();
   }, []);
 
-  const refreshUsers = () => {
-    setUsers(getUsers());
-  };
-
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.password) {
       alert("Semua field harus diisi!");
       return;
     }
     
-    addUser({
-      ...formData,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`
-    });
-    refreshUsers();
-    setIsModalOpen(false);
-    setFormData({ name: '', email: '', password: '', role: Role.ANGGOTA });
+    try {
+      await addUser({
+        ...formData,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.name}`
+      });
+      await refreshUsers();
+      setIsModalOpen(false);
+      setFormData({ name: '', email: '', password: '', role: Role.ANGGOTA });
+    } catch (err) {
+      alert("Gagal menambah anggota");
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (id === activeUser?.id) {
       alert("Anda tidak dapat menghapus akun Anda sendiri.");
       return;
     }
     if (window.confirm('Hapus anggota ini dari sistem?')) {
-      deleteUser(id);
-      refreshUsers();
+      try {
+        await deleteUser(id);
+        await refreshUsers();
+      } catch (err) {
+        alert("Gagal menghapus anggota");
+      }
     }
   };
 
@@ -86,49 +101,60 @@ export const Members: React.FC = () => {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredUsers.map(user => (
-          <div key={user.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all group relative overflow-hidden">
-             <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-5 ${
-               user.role === Role.KETUA ? 'bg-amber-500' : user.role === Role.BENDAHARA ? 'bg-blue-500' : 'bg-emerald-500'
-             }`}></div>
-             
-             <div className="flex items-center gap-4 mb-6 relative">
-               <img src={user.avatar} className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-slate-50 object-cover" alt={user.name} />
-               <div>
-                 <h4 className="font-black text-slate-800 tracking-tight">{user.name}</h4>
-                 <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                    user.role === Role.KETUA ? 'bg-amber-100 text-amber-700' : 
-                    user.role === Role.BENDAHARA ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
-                 }`}>
-                   {user.role}
-                 </span>
+      {loading ? (
+        <div className="flex justify-center py-20 text-emerald-600">
+          <Loader2 className="animate-spin" size={40} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredUsers.map(user => (
+            <div key={user.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all group relative overflow-hidden">
+               <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-5 ${
+                 user.role === Role.KETUA ? 'bg-amber-500' : user.role === Role.BENDAHARA ? 'bg-blue-500' : 'bg-emerald-500'
+               }`}></div>
+               
+               <div className="flex items-center gap-4 mb-6 relative">
+                 <img src={user.avatar} className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-slate-50 object-cover" alt={user.name} />
+                 <div>
+                   <h4 className="font-black text-slate-800 tracking-tight">{user.name}</h4>
+                   <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                      user.role === Role.KETUA ? 'bg-amber-100 text-amber-700' : 
+                      user.role === Role.BENDAHARA ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                   }`}>
+                     {user.role}
+                   </span>
+                 </div>
                </div>
-             </div>
 
-             <div className="space-y-3 mb-6">
-               <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
-                 <Mail size={16} className="text-slate-300" />
-                 <span className="truncate">{user.email}</span>
+               <div className="space-y-3 mb-6">
+                 <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
+                   <Mail size={16} className="text-slate-300" />
+                   <span className="truncate">{user.email}</span>
+                 </div>
+                 <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
+                   <Calendar size={16} className="text-slate-300" />
+                   <span>Bergabung: {user.joinedDate || '-'}</span>
+                 </div>
                </div>
-               <div className="flex items-center gap-3 text-sm text-slate-500 font-medium">
-                 <Calendar size={16} className="text-slate-300" />
-                 <span>Bergabung: {user.joinedDate}</span>
-               </div>
-             </div>
 
-             <div className="flex gap-2">
-               <button 
-                 onClick={() => handleDelete(user.id)}
-                 className="flex-1 py-2 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all flex items-center justify-center gap-2 font-bold text-xs uppercase"
-               >
-                 <Trash2 size={14} />
-                 Hapus
-               </button>
-             </div>
-          </div>
-        ))}
-      </div>
+               <div className="flex gap-2">
+                 <button 
+                   onClick={() => handleDelete(user.id)}
+                   className="flex-1 py-2 rounded-xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all flex items-center justify-center gap-2 font-bold text-xs uppercase"
+                 >
+                   <Trash2 size={14} />
+                   Hapus
+                 </button>
+               </div>
+            </div>
+          ))}
+          {filteredUsers.length === 0 && (
+            <div className="col-span-full text-center py-20 text-slate-400 italic font-bold uppercase text-xs tracking-widest">
+              Anggota tidak ditemukan
+            </div>
+          )}
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/40 backdrop-blur-md">
@@ -190,10 +216,10 @@ export const Members: React.FC = () => {
               </div>
 
               <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 transition-colors">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 transition-colors uppercase tracking-widest text-xs">
                   Batal
                 </button>
-                <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-600/20 transition-all transform active:scale-95">
+                <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-600/20 transition-all transform active:scale-95 uppercase tracking-widest text-xs">
                   Simpan Akun
                 </button>
               </div>

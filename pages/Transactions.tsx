@@ -17,6 +17,7 @@ export const Transactions: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [loading, setLoading] = useState(true);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
@@ -47,14 +48,23 @@ export const Transactions: React.FC = () => {
   });
   const [fileName, setFileName] = useState('');
 
-  useEffect(() => {
-    refreshTransactions();
-    setEvents(getEvents());
-  }, []);
-
-  const refreshTransactions = () => {
-    setAllTransactions(getTransactions());
+  const refreshData = async () => {
+    setLoading(true);
+    try {
+      const [txData, evData] = await Promise.all([
+        getTransactions(),
+        getEvents()
+      ]);
+      setAllTransactions(txData);
+      setEvents(evData);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    refreshData();
+  }, []);
 
   const filteredData = useMemo(() => {
     return allTransactions.filter(t => {
@@ -100,24 +110,32 @@ export const Transactions: React.FC = () => {
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.amount || !formData.description) return;
 
-    const newTx = addTransaction({
-      ...formData as any,
-      createdBy: 'Anda', 
-    });
+    try {
+      const newTx = await addTransaction({
+        ...formData as any,
+        createdBy: 'Anda', 
+      });
 
-    setAllTransactions(prev => [newTx, ...prev]);
-    resetForm();
-    setIsModalOpen(false);
+      setAllTransactions(prev => [newTx, ...prev]);
+      resetForm();
+      setIsModalOpen(false);
+    } catch (err) {
+      alert("Gagal menyimpan transaksi");
+    }
   };
 
-  const handleDeleteTx = (id: string) => {
+  const handleDeleteTx = async (id: string) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini secara permanen?')) {
-      deleteTransaction(id);
-      setAllTransactions(prev => prev.filter(t => t.id !== id));
+      try {
+        await deleteTransaction(id);
+        setAllTransactions(prev => prev.filter(t => t.id !== id));
+      } catch (err) {
+        alert("Gagal menghapus transaksi");
+      }
     }
   };
 
@@ -171,7 +189,7 @@ export const Transactions: React.FC = () => {
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <select 
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none appearance-none bg-white text-slate-700"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none appearance-none bg-white text-slate-700 font-medium"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
               >
@@ -182,7 +200,7 @@ export const Transactions: React.FC = () => {
           <div className="col-span-1">
             <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Tahun</label>
             <select 
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-700"
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-slate-700 font-medium"
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
             >
@@ -196,7 +214,7 @@ export const Transactions: React.FC = () => {
               <input 
                 type="text" 
                 placeholder="Cari keterangan transaksi..." 
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white font-medium"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -289,7 +307,7 @@ export const Transactions: React.FC = () => {
 
       <Card title="Daftar Transaksi" action={
         <select 
-          className="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 outline-none"
+          className="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 outline-none font-bold"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
@@ -302,20 +320,20 @@ export const Transactions: React.FC = () => {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
-                <th className="pb-3 pl-2 font-medium">Tanggal</th>
-                <th className="pb-3 font-medium">Kategori & Event</th>
-                <th className="pb-3 font-medium">Keterangan</th>
-                <th className="pb-3 font-medium text-right">Jumlah</th>
-                <th className="pb-3 pr-2 font-medium text-center">Aksi</th>
+                <th className="pb-3 pl-2 font-black uppercase text-[10px] tracking-widest">Tanggal</th>
+                <th className="pb-3 font-black uppercase text-[10px] tracking-widest">Kategori & Event</th>
+                <th className="pb-3 font-black uppercase text-[10px] tracking-widest">Keterangan</th>
+                <th className="pb-3 font-black uppercase text-[10px] tracking-widest text-right">Jumlah</th>
+                <th className="pb-3 pr-2 font-black uppercase text-[10px] tracking-widest text-center">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredData.map((tx) => (
                 <tr key={tx.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="py-3 pl-2 text-slate-600 whitespace-nowrap">{tx.date}</td>
+                  <td className="py-3 pl-2 text-slate-600 whitespace-nowrap font-medium">{tx.date}</td>
                   <td className="py-3">
                     <div className="flex flex-col gap-1">
-                      <span className={`inline-block w-fit px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      <span className={`inline-block w-fit px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                         tx.type === TransactionType.INCOME 
                           ? 'bg-emerald-100 text-emerald-700' 
                           : 'bg-rose-100 text-rose-700'
@@ -323,15 +341,15 @@ export const Transactions: React.FC = () => {
                         {tx.category}
                       </span>
                       {tx.eventId && (
-                        <span className="flex items-center gap-1 text-[11px] text-blue-600 font-medium">
+                        <span className="flex items-center gap-1 text-[11px] text-blue-600 font-bold">
                           <Calendar size={10} />
                           {getEventName(tx.eventId)}
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="py-3 text-slate-800 max-w-xs truncate">{tx.description}</td>
-                  <td className={`py-3 text-right font-medium ${
+                  <td className="py-3 text-slate-800 max-w-xs truncate font-medium">{tx.description}</td>
+                  <td className={`py-3 text-right font-black ${
                     tx.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-slate-700'
                   }`}>
                     {tx.type === TransactionType.INCOME ? '+' : '-'} {formatCurrency(tx.amount)}
@@ -341,7 +359,7 @@ export const Transactions: React.FC = () => {
                       <button 
                         type="button"
                         onClick={() => setSelectedTx(tx)}
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-full transition-colors"
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-xl transition-colors"
                         title="Lihat Detail"
                       >
                         <Eye size={18} />
@@ -352,7 +370,7 @@ export const Transactions: React.FC = () => {
                           e.stopPropagation();
                           handleDeleteTx(tx.id);
                         }}
-                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-full transition-colors"
+                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-xl transition-colors"
                         title="Hapus Transaksi"
                       >
                         <Trash2 size={18} />
@@ -361,11 +379,11 @@ export const Transactions: React.FC = () => {
                   </td>
                 </tr>
               ))}
-              {filteredData.length === 0 && (
+              {!loading && filteredData.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-slate-400">
                     <Filter size={40} className="mx-auto mb-3 opacity-20" />
-                    <p>Tidak ada data transaksi ditemukan untuk periode ini.</p>
+                    <p className="font-bold uppercase text-xs tracking-widest">Tidak ada data transaksi</p>
                   </td>
                 </tr>
               )}
@@ -375,21 +393,21 @@ export const Transactions: React.FC = () => {
       </Card>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in-up">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-emerald-50">
-              <h3 className="font-semibold text-slate-800">Tambah Transaksi Baru</h3>
-              <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/40 backdrop-blur-md">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up border border-white/20">
+            <div className="flex justify-between items-center px-8 py-6 border-b border-slate-100 bg-emerald-50/50">
+              <h3 className="font-black text-slate-800 text-xl tracking-tight uppercase">Catat Transaksi</h3>
+              <button onClick={() => { setIsModalOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-600 bg-white p-1.5 rounded-xl shadow-sm">
                 <X size={20} />
               </button>
             </div>
             
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSave} className="p-8 space-y-4 max-h-[80vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipe</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipe</label>
                   <select 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold"
                     value={formData.type}
                     onChange={(e) => setFormData({...formData, type: e.target.value as TransactionType})}
                   >
@@ -397,10 +415,10 @@ export const Transactions: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tanggal</label>
                   <input 
                     type="date"
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold"
                     value={formData.date}
                     onChange={(e) => setFormData({...formData, date: e.target.value})}
                   />
@@ -409,9 +427,9 @@ export const Transactions: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Kategori</label>
                   <select 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold"
                     value={formData.category}
                     onChange={(e) => setFormData({...formData, category: e.target.value as TransactionCategory})}
                   >
@@ -419,13 +437,13 @@ export const Transactions: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Event (Opsional)</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Event (Opsional)</label>
                   <select 
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold"
                     value={formData.eventId}
                     onChange={(e) => setFormData({...formData, eventId: e.target.value})}
                   >
-                    <option value="">-- Bukan Bagian Event --</option>
+                    <option value="">-- Bukan Event --</option>
                     {events.map(ev => (
                       <option key={ev.id} value={ev.id}>{ev.name}</option>
                     ))}
@@ -434,22 +452,22 @@ export const Transactions: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah (Rp)</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Jumlah (Rp)</label>
                 <input 
                   type="number"
                   min="0"
                   placeholder="0"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold"
                   value={formData.amount || ''}
                   onChange={(e) => setFormData({...formData, amount: Number(e.target.value)})}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Keterangan</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Keterangan</label>
                 <textarea 
                   rows={2}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                  className="w-full border border-slate-200 p-3 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-slate-50 font-bold resize-none"
                   placeholder="Deskripsi transaksi..."
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -457,32 +475,32 @@ export const Transactions: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Bukti Transaksi</label>
-                <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bukti Transaksi</label>
+                <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
                    <input 
                     type="file" 
                     className="absolute inset-0 opacity-0 cursor-pointer" 
                     accept="image/*,.pdf" 
                     onChange={handleFileChange}
                    />
-                   <Upload size={20} className={`mx-auto mb-1 ${fileName ? 'text-emerald-500' : 'text-slate-400'}`} />
-                   <p className="text-[10px] text-slate-500 leading-tight">
-                     {fileName ? `Terpilih: ${fileName}` : 'Klik untuk upload (Gambar/PDF)'}
+                   <Upload size={24} className={`mx-auto mb-2 ${fileName ? 'text-emerald-500' : 'text-slate-300'}`} />
+                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-tight">
+                     {fileName ? `File: ${fileName}` : 'Klik untuk upload bukti'}
                    </p>
                 </div>
               </div>
 
-              <div className="pt-2 flex gap-3">
+              <div className="pt-4 flex gap-4">
                 <button 
                   type="button" 
                   onClick={() => { setIsModalOpen(false); resetForm(); }}
-                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50"
+                  className="flex-1 py-3 border border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 transition-colors uppercase tracking-widest text-xs"
                 >
                   Batal
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
+                  className="flex-1 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-black shadow-lg shadow-emerald-600/20 transition-all uppercase tracking-widest text-xs transform active:scale-95"
                 >
                   Simpan
                 </button>
@@ -493,19 +511,19 @@ export const Transactions: React.FC = () => {
       )}
 
       {selectedTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-md overflow-hidden animate-fade-in-up">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <h3 className="font-semibold text-slate-800">Detail Transaksi</h3>
-              <button onClick={() => setSelectedTx(null)} className="text-slate-400 hover:text-slate-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-emerald-950/40 backdrop-blur-md">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up border border-white/20">
+            <div className="flex justify-between items-center px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-black text-slate-800 text-xl tracking-tight uppercase">Detail Transaksi</h3>
+              <button onClick={() => setSelectedTx(null)} className="text-slate-400 hover:text-slate-600 bg-white p-1.5 rounded-xl shadow-sm">
                 <X size={20} />
               </button>
             </div>
             
-            <div className="p-6 space-y-4">
-               <div className="flex justify-between items-center">
-                 <div className="flex flex-col gap-1">
-                   <span className={`w-fit px-3 py-1 rounded-full text-xs font-bold ${
+            <div className="p-8 space-y-6">
+               <div className="flex justify-between items-start">
+                 <div className="flex flex-col gap-2">
+                   <span className={`w-fit px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${
                       selectedTx.type === TransactionType.INCOME 
                         ? 'bg-emerald-100 text-emerald-700' 
                         : 'bg-rose-100 text-rose-700'
@@ -513,18 +531,18 @@ export const Transactions: React.FC = () => {
                      {selectedTx.type}
                    </span>
                    {selectedTx.eventId && (
-                     <span className="text-xs text-blue-600 font-semibold flex items-center gap-1">
+                     <span className="text-[11px] text-blue-600 font-black uppercase tracking-widest flex items-center gap-1.5">
                        <Calendar size={12} />
                        {getEventName(selectedTx.eventId)}
                      </span>
                    )}
                  </div>
-                 <span className="text-slate-500 text-sm">{selectedTx.date}</span>
+                 <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">{selectedTx.date}</span>
                </div>
 
                <div>
-                 <p className="text-xs text-slate-500 uppercase tracking-wide">Jumlah</p>
-                 <p className={`text-2xl font-bold ${
+                 <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1.5">Jumlah Transaksi</p>
+                 <p className={`text-3xl font-black tracking-tighter ${
                    selectedTx.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'
                  }`}>
                    {formatCurrency(selectedTx.amount)}
@@ -532,25 +550,25 @@ export const Transactions: React.FC = () => {
                </div>
 
                <div>
-                 <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Keterangan</p>
-                 <p className="text-slate-700 bg-slate-50 p-3 rounded-lg text-sm">{selectedTx.description}</p>
+                 <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1.5">Keterangan</p>
+                 <p className="text-slate-800 bg-slate-50 p-4 rounded-2xl text-sm font-bold leading-relaxed">{selectedTx.description}</p>
                </div>
 
                {selectedTx.proofUrl && (
                  <div>
-                   <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Bukti Transaksi</p>
-                   <div className="rounded-lg overflow-hidden border border-slate-200">
-                     <img src={selectedTx.proofUrl} alt="Bukti" className="w-full h-auto max-h-48 object-cover" />
+                   <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-2">Bukti Transaksi</p>
+                   <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
+                     <img src={selectedTx.proofUrl} alt="Bukti" className="w-full h-auto max-h-56 object-cover" />
                    </div>
                  </div>
                )}
 
-               <div className="pt-2">
+               <div className="pt-4">
                  <button 
                    onClick={() => setSelectedTx(null)}
-                   className="w-full px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 font-medium"
+                   className="w-full py-4 bg-slate-800 text-white rounded-2xl hover:bg-slate-900 font-black uppercase tracking-widest text-xs transition-all shadow-lg transform active:scale-95"
                  >
-                   Tutup
+                   Tutup Detail
                  </button>
                </div>
             </div>

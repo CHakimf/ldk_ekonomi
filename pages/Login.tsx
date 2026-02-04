@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { loginUser } from '../services/dataService';
 import { User } from '../types';
+import { Loader2 } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -10,14 +11,24 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = loginUser(email, password);
-    if (user) {
-      onLogin(user);
-    } else {
-      setError('Email atau password salah.');
+    setLoading(true);
+    setError('');
+    
+    try {
+      const user = await loginUser(email, password);
+      if (user) {
+        onLogin(user);
+      } else {
+        setError('Email atau password salah.');
+      }
+    } catch (err) {
+      setError('Terjadi kesalahan koneksi database.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,7 +40,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-emerald-950/50 rotate-3 transition-transform hover:rotate-0 cursor-default">
              <span className="text-4xl font-black text-emerald-900">L</span>
           </div>
-          <h2 className="text-3xl font-black uppercase tracking-tighter">LDK Ekonomi UBB</h2>
+          <h2 className="text-3xl font-black uppercase tracking-tighter leading-tight">LDK Ekonomi UBB</h2>
           <p className="text-emerald-300 text-[10px] font-black uppercase tracking-widest mt-2">Sistem Informasi Pemasaran</p>
         </div>
         
@@ -74,9 +85,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <button 
               type="submit"
-              className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 uppercase tracking-widest text-sm transform active:scale-95"
+              disabled={loading}
+              className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/30 uppercase tracking-widest text-sm transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              Masuk Sistem
+              {loading ? <Loader2 className="animate-spin" size={20} /> : 'Masuk Sistem'}
             </button>
           </form>
 

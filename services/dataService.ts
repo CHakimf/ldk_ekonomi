@@ -1,14 +1,34 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { Transaction, Event, User, Role, TransactionType, TransactionCategory } from '../types';
 
-// Inisialisasi Supabase Client
-// Pastikan Environment Variables sudah diatur di Vercel
-// Fix: Use type casting to avoid TypeScript error on ImportMeta
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '';
+/**
+ * Helper untuk mengambil environment variables secara aman.
+ */
+const getEnvVar = (key: string): string => {
+  try {
+    if (typeof process !== 'undefined' && process.env && (process.env as any)[key]) {
+      return (process.env as any)[key];
+    }
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[key]) {
+      return (import.meta as any).env[key];
+    }
+  } catch (e) {
+    console.warn(`Error accessing environment variable ${key}:`, e);
+  }
+  return '';
+};
+
+const rawUrl = getEnvVar('VITE_SUPABASE_URL');
+const rawKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+
+// Supabase library melempar error jika URL kosong. 
+// Kita gunakan placeholder agar aplikasi tidak crash saat startup jika belum dikonfigurasi.
+const supabaseUrl = rawUrl || 'https://placeholder-project.supabase.co';
+const supabaseAnonKey = rawKey || 'placeholder-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const isConfigured = !!rawUrl && !!rawKey;
 
 const KEYS = {
   SESSION: 'ldk_active_session'
@@ -17,6 +37,7 @@ const KEYS = {
 // --- USER SERVICES ---
 
 export const getUsers = async (): Promise<User[]> => {
+  if (!isConfigured) return [];
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -26,10 +47,11 @@ export const getUsers = async (): Promise<User[]> => {
     console.error('Error fetching users:', error);
     return [];
   }
-  return data as User[];
+  return (data || []) as User[];
 };
 
 export const addUser = async (user: Omit<User, 'id' | 'joinedDate'>) => {
+  if (!isConfigured) throw new Error('Database tidak terkonfigurasi');
   const { data, error } = await supabase
     .from('users')
     .insert([{ ...user, joined_date: new Date().toISOString().split('T')[0] }])
@@ -41,6 +63,7 @@ export const addUser = async (user: Omit<User, 'id' | 'joinedDate'>) => {
 };
 
 export const deleteUser = async (id: string) => {
+  if (!isConfigured) return;
   const { error } = await supabase.from('users').delete().eq('id', id);
   if (error) throw error;
 };
@@ -48,6 +71,7 @@ export const deleteUser = async (id: string) => {
 // --- TRANSACTION SERVICES ---
 
 export const getTransactions = async (): Promise<Transaction[]> => {
+  if (!isConfigured) return [];
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
@@ -57,10 +81,11 @@ export const getTransactions = async (): Promise<Transaction[]> => {
     console.error('Error fetching transactions:', error);
     return [];
   }
-  return data as Transaction[];
+  return (data || []) as Transaction[];
 };
 
 export const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
+  if (!isConfigured) throw new Error('Database tidak terkonfigurasi');
   const { data, error } = await supabase
     .from('transactions')
     .insert([transaction])
@@ -72,6 +97,7 @@ export const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
 };
 
 export const deleteTransaction = async (id: string) => {
+  if (!isConfigured) return;
   const { error } = await supabase.from('transactions').delete().eq('id', id);
   if (error) throw error;
 };
@@ -79,6 +105,7 @@ export const deleteTransaction = async (id: string) => {
 // --- EVENT SERVICES ---
 
 export const getEvents = async (): Promise<Event[]> => {
+  if (!isConfigured) return [];
   const { data, error } = await supabase
     .from('events')
     .select('*')
@@ -88,10 +115,11 @@ export const getEvents = async (): Promise<Event[]> => {
     console.error('Error fetching events:', error);
     return [];
   }
-  return data as Event[];
+  return (data || []) as Event[];
 };
 
 export const addEvent = async (event: Omit<Event, 'id'>) => {
+  if (!isConfigured) throw new Error('Database tidak terkonfigurasi');
   const { data, error } = await supabase
     .from('events')
     .insert([event])
@@ -103,6 +131,7 @@ export const addEvent = async (event: Omit<Event, 'id'>) => {
 };
 
 export const updateEvent = async (event: Event) => {
+  if (!isConfigured) throw new Error('Database tidak terkonfigurasi');
   const { data, error } = await supabase
     .from('events')
     .update(event)
@@ -115,6 +144,7 @@ export const updateEvent = async (event: Event) => {
 };
 
 export const deleteEvent = async (id: string) => {
+  if (!isConfigured) return;
   const { error } = await supabase.from('events').delete().eq('id', id);
   if (error) throw error;
 };
@@ -127,6 +157,7 @@ export const getCurrentUser = (): User | null => {
 };
 
 export const loginUser = async (email: string, password?: string): Promise<User | null> => {
+  if (!isConfigured) return null;
   const { data, error } = await supabase
     .from('users')
     .select('*')
@@ -171,6 +202,7 @@ export const getEventBudgetStats = async (eventId: string) => {
 };
 
 export const updateUserProfile = async (id: string, updates: Partial<User>) => {
+  if (!isConfigured) throw new Error('Database tidak terkonfigurasi');
   const { data, error } = await supabase
     .from('users')
     .update(updates)
@@ -180,7 +212,6 @@ export const updateUserProfile = async (id: string, updates: Partial<User>) => {
 
   if (error) throw error;
   
-  // Update local session
   const current = getCurrentUser();
   if (current && current.id === id) {
     const { password: _, ...cleanUser } = data;
